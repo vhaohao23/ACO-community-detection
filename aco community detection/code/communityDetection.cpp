@@ -1,256 +1,263 @@
 #include<bits/stdc++.h>
-#include <windows.h>
 using namespace std;
-const int N=500;//số thành phố tối đa
-double p=0.8;
-int A[N+1][N+1]={};
-int numberCity;
-const int maxInteration=100;
-const int numberAnt=30  ;
+const int T=100;
+int pop=100;
+int N;
 int NE;
-vector<vector<double>> pheromone ( N, vector<double>(N,1) );
 double ALPHA=1,BETA=2;
-double h[N+1][N+1]={};
-double u[N]={};
-double o[N]={};
-double Tmax,Tmin;
-int k[N]={};
-int Community[N];
-vector<int> e[N];
-struct edge{
-        int u,v;
-};
-double bestT,worstT;
-vector<edge> trace[numberAnt+1];
+double ans=0;
+double pheMax,pheMin;
+vector<vector<int>> A;
+vector<vector<double>> h;
+vector<vector<int>> e;
+vector<double> u;
+vector<double> o;
+vector<int> k;
+vector<int> bestCom;
+vector<vector<double>> pheromone;
+vector<vector<int>> trace;
+double evaRate=0.8;
+double epsilion;
+random_device rd;   
+mt19937 gen(rd());
+vector<bool> dd;
+vector<vector<int>> g(pop+1);
+vector<vector<int>> dk(pop+1);
+vector<vector<int>> lk(pop+1);
 
-int dpt=0;
-int better=0;
-vector<int> karate[100];
-void solution(int k){
-    double chance[N+1][N+1]={};
-   for (int i=1;i<=numberCity;i++){
-        double totalChance=0;
-         //random để chọn thành phố tiếp theo
-        for (int j=1;j<=numberCity;j++)
-            if (i!=j&&A[i][j]){
-                chance[i][j]=pow(pheromone[i][j],ALPHA)*pow(h[i][j],BETA);
-                totalChance+=chance[i][j];
-            }
-       
-        double randCity=(double(rand())/double(RAND_MAX))*totalChance;
-        double check=0;
-        int nextCity=0;
-        for (int j=1;j<=numberCity;j++)
-            if (i!=j&&A[i][j]){
-                check+=chance[i][j];
-                if (check>=randCity) {nextCity=j;break;}
-            }
-        
-        e[i].push_back(nextCity);
-        e[nextCity].push_back(i);
-        trace[k].push_back({i,nextCity});
-   }
-}
-
-void updatePheromone(double Modularity, int k,int iter){
-    //pheromone bị bay hơi đi một lượng với tốc độ bay hơi là p
-
-    for (int i=1;i<=numberCity;i++)
-        for (int j=1;j<=numberCity;j++){    
-            if (iter<=10)
-            pheromone[i][j]*=p;
-            
-        }
-
-    //cập nhật lại nồng độ pheromone trên đường khi con kiến đi qua
-    
-    bool dd[numberCity+1][numberCity+1]={};
-    for (auto ve : trace[k]){
-        int from=ve.u,to=ve.v;
-            
-        if (dd[from][to]) continue;
-        pheromone[from][to]+=Modularity;
-        pheromone[to][from]+=Modularity;
-            
-        dd[from][to]=dd[to][from]=1;                                                                                                 
-    }
-
-    for (int i=1;i<=numberCity;i++)
-        for (int j=1;j<=numberCity;j++){
-            bestT=max(bestT,pheromone[i][j]),worstT=min(worstT,pheromone[i][j]);
-            if (pheromone[i][j]>Tmax) {pheromone[i][j]=pheromone[j][i]=Tmax;better++;}
-            if (pheromone[i][j]<Tmin) pheromone[i][j]=pheromone[j][i]=Tmin;
-
-        }
-}
-
-void bfs(){
-    int cnt=0;
-    int dd[numberCity+1]={};
-    for (int i=1;i<=numberCity;i++)
-        if (!dd[i]){
-            ++cnt;
-            queue<int> q;
-            q.push(i);
-            dd[i]=1;
-            while (!q.empty())
-            {
-                int u=q.front();
-                q.pop();
-                Community[u]=cnt;
-                for (int v:e[u])
-                if (!dd[v]){
-                    dd[v]=1;
-                    q.push(v);
-                }
-            }
-
-        }
-}
-
-double measureCrit(){
-    double q=0;
-    for (int i=1;i<=numberCity;i++)
-        for (int j=1;j<=numberCity;j++)
-        // if (i!=j)
-            q+=((double(A[i][j]) - double(k[i]*k[j])/double(2.0*NE) )*(Community[i]==Community[j]));
-
-    return q/double(2.0*NE);
-}
-
-void setting(){
-    double ans=-1;
-    int ansCommunity[numberCity+1]={};
-    for (int i=1;i<=maxInteration;i++){
-        bestT=0,worstT=100;
-
-        double modularity[numberAnt]={};
-        double ib=-1;
-        int whichAnt;
-
-        for (int k=0;k<numberAnt;k++){
-            //rs
-            for (int j=1;j<=numberCity;j++) e[j].clear();
-
-            solution(k);
-
-            memset(Community,sizeof(Community),0);
-            bfs();
-
-            modularity[k]=measureCrit();
-
-            if (modularity[k]>ans){
-                for (int node=1;node<=numberCity;node++)
-                    ansCommunity[node]=Community[node];
-
-                ans=modularity[k];
-
-            }
-
-            if (modularity[k]>ib) ib=modularity[k],whichAnt=k;
-
-        }
-
-        Tmax=ans/(1-p),Tmin=Tmax*0.005;
-        // cout<<trace[whichAnt].size()<<" "<<ib<<"\n";
-        updatePheromone(ib,whichAnt,i);
-
-        for (int k=0;k<numberAnt;k++) trace[k].clear();
-
-        cout<<Tmin<<" "<<ib<<" "<<Tmax<<" "<<bestT<<","<<worstT<<"\n";
-        // cout<<better<<"\n";
-
-    }
-    cout<<"Các nhóm:\n";
-    for (int i=1;i<=numberCity;i++)
-        karate[ansCommunity[i]].push_back(i);
-
-    for (auto x:karate){
-        for (auto y:x) cout<<y<<" ";
-        if (x.size()>0)
-        cout<<"\n";
-    }
-    cout<<"Modularity global best:";
-    cout<<ans<<"\n";
-
-    // cout<<"Membership vector:\n";
-    // for (int i=1;i<=numberCity;i++)
-    //     cout<<ansCommunity[i]<<" ";
-
-
-    //  for (int i=1;i<=numberCity;i++){
-    //     for (int j=1;j<=numberCity;j++)
-    //         cout<<pheromone[i][j]<<" ";
-    //     cout<<"\n";
-    // }
-        
-    // cout<<dpt;
-    // cout<<better;
-}
-
-//calculate heruristic in4
 void calU(int i){
-    for (int l=1;l<=numberCity;l++)
-        u[i]+=(double(A[i][l])/double(numberCity));
+    for (int l=1;l<=N;l++)
+        u[i]+=(double(A[i][l])/double(N));
 }
 void calO(int i){
-    for (int l=1;l<=numberCity;l++)
-        o[i]+=(pow(A[i][l]-u[i],2)/double(numberCity));
+    for (int l=1;l<=N;l++)
+        o[i]+=(pow(A[i][l]-u[i],2)/double(N));
 
 
     o[i]=sqrt(o[i]);
 }
 double C(int i,int j){
     double sum=0;
-    for (int l=1;l<=numberCity;l++)
+    for (int l=1;l<=N;l++)
     {
         sum+=( (double(A[i][l])-u[i])*(double(A[j][l])-u[j]) );
     }
-    sum/=(double(numberCity)*o[i]*o[j]);
+    sum/=(double(N)*o[i]*o[j]);
     return sum;
 }
+
 void calH(int i,int j){
     h[i][j]=h[j][i]=1/(1+exp(-C(i,j)));
 }
 void heuristic(){
-    for (int i=1;i<=numberCity;i++)
+    for (int i=1;i<=N;i++)
         calU(i);
-    for (int i=1;i<=numberCity;i++)
+    for (int i=1;i<=N;i++)
         calO(i);
 
-    //cal heuristic in4
-    for (int i=1;i<=numberCity;i++)
-        for (int j=1;j<=numberCity;j++)
-            if (i!=j)
+    for (int i=1;i<=N;i++)
+        for (int j:e[i])
                 calH(i,j);
-
 }
+void solution(vector<int> &select){
+    double totalChance,randChance;
+    for (int i=1;i<=N;i++)
+        {
+            totalChance=0;
+            for (int j:e[i])
+                totalChance+=pow(pheromone[i][j],ALPHA)*pow(h[i][j],BETA);
+            
+            uniform_real_distribution dis(0.0,totalChance);
+            randChance=dis(gen);
+            double check=0;
 
-int main(){
-    freopen("population.txt","r",stdin);
-     srand((unsigned int)time(NULL));
-
-    cin>>numberCity;
-    cin>>NE;
-    for (int i=1;i<=NE;i++){
-        int u,v,w;
-        cin>>u>>v;
-        
-        w=1;
-        if (!A[u][v])
-            A[u][v]=A[v][u]=w;
-
-    }
-    //calculate degree
-    for (int i=1;i<=numberCity;i++)
-    {
-
-        for (int j=1;j<=numberCity;j++)
-            k[i]+=A[i][j];
-        // A[i][i]=1;
-    }
-    heuristic();
+            for (int j:e[i]){
+                check+=pow(pheromone[i][j],ALPHA)*pow(h[i][j],BETA);
+                if (check>randChance) {select[i]=j;break;}
+            }
+        }
+}
+void decoding(vector<int> select,vector<int> &cs){
+    trace.clear();
+    trace.resize(N+1);
     
-    setting();
+    for (int i=1;i<=N;i++)
+        {
+            trace[i].push_back(select[i]);
+            trace[select[i]].push_back(i);
+        }
+
+    
+    queue<int> q;
+    int cnt=0;
+    
+    for (int i=1;i<=N;i++) dd[i]=0;
+
+    for (int i=1;i<N;i++)
+        if (!dd[i]){
+            ++cnt;
+            q.push(i);
+            dd[i]=1;
+            while (!q.empty()){
+                int u=q.front();
+                q.pop();
+                cs[u]=cnt;
+                for (int v:trace[u])
+                    if (!dd[v]){
+                        dd[v]=1;
+                        q.push(v);
+                    }
+            }
+        }
+}
+double modularity(vector<int> dk,vector<int> lk){
+    double Q=0;
+
+    for (int i=1;i<=N;i++){
+        Q+=double(lk[i])/double(NE)-pow(double(dk[i])/double(2*NE),2.0);
+    }
+
+    return Q;
+}
+void updatePheromone(vector<int> select,double qibest){
+    for (int i=1;i<=N;i++)
+        for (int j:e[i])
+            pheromone[i][j]*=evaRate;
+    int j;
+    for (int i=1;i<=N;i++){
+        j=select[i];
+        pheromone[i][j]+=qibest;
+        if (pheromone[i][j]>pheMax) pheromone[i][j]=pheMax;
+        if (pheromone[i][j]<pheMin) pheromone[i][j]=pheMin;
+    }
+}
+void EPD(){
+    if (g.size()<10) return;
+
+    vector<pair<double, int>> modularityValues;
+    for (int i = 1; i <= pop; i++) {
+        double modValue = modularity(dk[i],lk[i]);  
+        modularityValues.push_back({modValue, i});
+    }
+
+    sort(modularityValues.begin(), modularityValues.end());
+
+    vector<vector<int>> sortedG(pop + 1);
+    vector<vector<int>> sorteddk(pop + 1);
+    vector<vector<int>> sortedlk(pop + 1); 
+    for (int i = 0; i < pop; i++) {
+        sortedG[i + 1] = g[modularityValues[i].second];
+        sorteddk[i + 1] = dk[modularityValues[i].second];
+        sortedlk[i + 1] = lk[modularityValues[i].second];
+    }
+
+    g=sortedG;
+    dk=sorteddk;
+    lk=sortedlk;
+
+    double N_nor=pop-(pop/2+1)+1;
+    uniform_real_distribution<double> dis(0,1);
+    for (int i=pop/2+1;i<=pop;i++){
+        double C=1.0-exp(-double(i)/N_nor);
+        double rand=dis(gen);
+        if (rand<=C){
+            g.erase(g.begin() + i);
+            dk.erase(dk.begin() + i);
+            lk.erase(lk.begin() + i);   
+            --pop;
+        }
+    }
+    
+}
+void transfer(vector<int> &dk,vector<int> &lk,vector<int> l,int i,int l1,int l2){
+    dk[l1]-=k[i];
+    dk[l2]+=k[i];
+    for (int v:e[i]){
+        if (l1==l[v])
+            --lk[l1];
+        if (l2==l[v])
+            ++lk[l2];
+    }
+}
+void ACO(){
+    vector<int> select;
+    select.resize(N+1);
+    vector<int> cs;
+    cs.resize(N+1);
+    vector<int> ibest;
+    vector<int> selectib;
+    for (int t=1;t<=T;t++){
+        double qibest=0;
+       
+        for (int p=1;p<=pop;p++){
+            for (int i=1;i<=N;i++) select[i]=i,cs[i]=0;
+            solution(select);
+            decoding(select,cs);
+            int numberCom=*max_element(cs.begin(), cs.end());
+            
+            for (int i=1;i<=N;i++)
+                if (cs[i]!=g[p][i]) {
+                    transfer(dk[p],lk[p],g[p],i,g[p][i],cs[i]);
+                    g[p][i]=cs[i];
+                }
+
+            double q=modularity(dk[p],lk[p]);
+
+            if (q>qibest){
+                qibest=q;
+                ibest=cs;
+                selectib=select;
+            }
+        }
+        
+        if (qibest>ans){
+            ans=qibest;
+            bestCom=ibest;
+        }
+        pheMax=ans/(1-evaRate),pheMin=pheMax*epsilion;
+        updatePheromone(selectib,qibest);
+        EPD();
+    }
+
+    cout<<ans<<"\n";
+    for (int l:bestCom) cout<<l<<" ";
+}
+int main(){
+    clock_t tStart = clock();
+
+    freopen("input.txt","r",stdin);
+    cin>>N>>NE;
+    A.resize(N+1);
+    for (int i=1;i<=N;i++) A[i].resize(N+1,0);
+    u.resize(N+1,0);
+    o.resize(N+1,0);
+    k.resize(N+1,0);
+    e.resize(N+1);
+    h.resize(N+1);
+    for (int i=1;i<=N;i++) h[i].resize(N+1,0);
+    pheromone.resize(N+1);
+    for (int i=1;i<=N;i++)
+        pheromone[i].resize(N+1,1);
+    trace.resize(N+1);
+    dd.resize(N+1);
+    for (int i=1;i<=pop;i++) {
+        g[i].resize(N+1,0);
+        dk[i].resize(N+1,0);
+        lk[i].resize(N+1,0);
+    }
+
+    int u,v;
+    for (int i=1;i<=NE;i++){
+        cin>>u>>v;
+        e[u].push_back(v);
+        e[v].push_back(u);
+        k[u]++,k[v]++;
+        A[u][v]=1,A[v][u]=1;
+    }
+
+    heuristic();
+    ACO();
+
+    printf("\nTime taken: %.2fs\n", (double)(clock() - tStart)/CLOCKS_PER_SEC);
 
 }
