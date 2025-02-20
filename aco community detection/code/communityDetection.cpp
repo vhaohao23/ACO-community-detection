@@ -24,6 +24,7 @@ vector<bool> dd;
 vector<vector<int>> g(pop+1);
 vector<vector<int>> dk(pop+1);
 vector<vector<int>> lk(pop+1);
+vector<vector<int>> x(pop+1);
 
 void calU(int i){
     for (int l=1;l<=N;l++)
@@ -62,20 +63,21 @@ void heuristic(){
 void solution(vector<int> &select){
     double totalChance,randChance;
     for (int i=1;i<=N;i++)
-        {
-            totalChance=0;
-            for (int j:e[i])
-                totalChance+=pow(pheromone[i][j],ALPHA)*pow(h[i][j],BETA);
-            
-            uniform_real_distribution dis(0.0,totalChance);
-            randChance=dis(gen);
-            double check=0;
+        if (select[i]==i)
+            {
+                totalChance=0;
+                for (int j:e[i])
+                    totalChance+=pow(pheromone[i][j],ALPHA)*pow(h[i][j],BETA);
+                
+                uniform_real_distribution dis(0.0,totalChance);
+                randChance=dis(gen);
+                double check=0;
 
-            for (int j:e[i]){
-                check+=pow(pheromone[i][j],ALPHA)*pow(h[i][j],BETA);
-                if (check>randChance) {select[i]=j;break;}
+                for (int j:e[i]){
+                    check+=pow(pheromone[i][j],ALPHA)*pow(h[i][j],BETA);
+                    if (check>randChance) {select[i]=j;break;}
+                }
             }
-        }
 }
 void decoding(vector<int> select,vector<int> &cs){
     trace.clear();
@@ -110,14 +112,13 @@ void decoding(vector<int> select,vector<int> &cs){
             }
         }
 }
-double modularity(vector<int> dk,vector<int> lk){
+double modularity(vector<int> l){
     double Q=0;
 
-    for (int i=1;i<=N;i++){
-        Q+=double(lk[i])/double(NE)-pow(double(dk[i])/double(2*NE),2.0);
-    }
-
-    return Q;
+    for (int i=1;i<=N;i++)
+        for (int j=1;j<=N;j++)
+                Q+=double(A[i][j]-k[i]*k[j]/double(2*NE))*double(l[i]==l[j]);
+    return Q/double(2*NE);
 }
 void updatePheromone(vector<int> select,double qibest){
     for (int i=1;i<=N;i++)
@@ -131,92 +132,124 @@ void updatePheromone(vector<int> select,double qibest){
         if (pheromone[i][j]<pheMin) pheromone[i][j]=pheMin;
     }
 }
-void EPD(){
-    if (g.size()<10) return;
+// void EPD(){
+//     if (g.size()<10) return;
 
-    vector<pair<double, int>> modularityValues;
-    for (int i = 1; i <= pop; i++) {
-        double modValue = modularity(dk[i],lk[i]);  
-        modularityValues.push_back({modValue, i});
-    }
+//     vector<pair<double, int>> modularityValues;
+//     for (int i = 1; i <= pop; i++) {
+//         double modValue = modularity();  
+//         modularityValues.push_back({modValue, i});
+//     }
 
-    sort(modularityValues.begin(), modularityValues.end());
+//     sort(modularityValues.begin(), modularityValues.end());
 
-    vector<vector<int>> sortedG(pop + 1);
-    vector<vector<int>> sorteddk(pop + 1);
-    vector<vector<int>> sortedlk(pop + 1); 
-    for (int i = 0; i < pop; i++) {
-        sortedG[i + 1] = g[modularityValues[i].second];
-        sorteddk[i + 1] = dk[modularityValues[i].second];
-        sortedlk[i + 1] = lk[modularityValues[i].second];
-    }
+//     vector<vector<int>> sortedG(pop + 1);
+//     vector<vector<int>> sorteddk(pop + 1);
+//     vector<vector<int>> sortedlk(pop + 1); 
+//     for (int i = 0; i < pop; i++) {
+//         sortedG[i + 1] = g[modularityValues[i].second];
+//         sorteddk[i + 1] = dk[modularityValues[i].second];
+//         sortedlk[i + 1] = lk[modularityValues[i].second];
+//     }
 
-    g=sortedG;
-    dk=sorteddk;
-    lk=sortedlk;
+//     g=sortedG;
+//     dk=sorteddk;
+//     lk=sortedlk;
 
-    double N_nor=pop-(pop/2+1)+1;
-    uniform_real_distribution<double> dis(0,1);
-    for (int i=pop/2+1;i<=pop;i++){
-        double C=1.0-exp(-double(i)/N_nor);
-        double rand=dis(gen);
-        if (rand<=C){
-            g.erase(g.begin() + i);
-            dk.erase(dk.begin() + i);
-            lk.erase(lk.begin() + i);   
-            --pop;
-        }
-    }
+//     double N_nor=pop-(pop/2+1)+1;
+//     uniform_real_distribution<double> dis(0,1);
+//     for (int i=pop/2+1;i<=pop;i++){
+//         double C=1.0-exp(-double(i)/N_nor);
+//         double rand=dis(gen);
+//         if (rand<=C){
+//             g.erase(g.begin() + i);
+//             dk.erase(dk.begin() + i);
+//             lk.erase(lk.begin() + i);   
+//             --pop;
+//         }
+//     }
     
+// }
+void intersection(vector<int> a,vector<int> b,vector<int> &inter){
+    for (int i=1;i<=N;i++)
+        if (a[i]==b[i]) inter[i]=a[i];
 }
-void transfer(vector<int> &dk,vector<int> &lk,vector<int> l,int i,int l1,int l2){
-    dk[l1]-=k[i];
-    dk[l2]+=k[i];
-    for (int v:e[i]){
-        if (l1==l[v])
-            --lk[l1];
-        if (l2==l[v])
-            ++lk[l2];
-    }
+
+void selfLearning(int p){
+    vector<int> tmp;
+    for (int i=1;i<=N;i++)
+        for (int j:e[i]){
+            tmp=g[p];
+            g[p][i]=g[p][j];
+
+            if (modularity(g[p])<modularity(tmp)){
+                g[p]=tmp;
+            }
+        }
 }
+
 void ACO(){
+    vector<pair<int,int>> save;
     vector<int> select;
     select.resize(N+1);
     vector<int> cs;
     cs.resize(N+1);
     vector<int> ibest;
     vector<int> selectib;
+    vector<int> inter;
+    inter.resize(N+1,0);
+    int posOptimal=0,posSuboptimal=0;
     for (int t=1;t<=T;t++){
         double qibest=0;
        
         for (int p=1;p<=pop;p++){
             for (int i=1;i<=N;i++) select[i]=i,cs[i]=0;
-            solution(select);
-            decoding(select,cs);
-            int numberCom=*max_element(cs.begin(), cs.end());
             
-            for (int i=1;i<=N;i++)
-                if (cs[i]!=g[p][i]) {
-                    transfer(dk[p],lk[p],g[p],i,g[p][i],cs[i]);
-                    g[p][i]=cs[i];
-                }
+            if (p>40)
+            solution(select);
+            else {
+                solution(inter);
+                select=inter;
+            }
+            x[p]=select;
 
-            double q=modularity(dk[p],lk[p]);
+            decoding(select,cs);
+            g[p]=cs;
+        }
+
+        for (int p=1;p<=pop;p++){
+            double q=modularity(g[p]);
+            save.push_back({q,p});
+        }
+        
+        sort(save.rbegin(), save.rend());
+        posOptimal=save[0].second;
+        posSuboptimal=save[1].second;
+        selfLearning(posOptimal);
+        selfLearning(posSuboptimal);
+
+        for (int p=1;p<=pop;p++){
+            double q=modularity(g[p]);
 
             if (q>qibest){
                 qibest=q;
-                ibest=cs;
-                selectib=select;
+                ibest=g[p];
+                selectib=x[p];
             }
         }
-        
+
         if (qibest>ans){
             ans=qibest;
             bestCom=ibest;
         }
+
+        for (int i=1;i<=N;i++) inter[i]=i;
+        intersection(x[posOptimal],x[posSuboptimal],inter);
+
         pheMax=ans/(1-evaRate),pheMin=pheMax*epsilion;
         updatePheromone(selectib,qibest);
-        EPD();
+        cout<<ans<<"\n";
+        // EPD();
     }
 
     cout<<ans<<"\n";
@@ -249,6 +282,7 @@ int main(){
     int u,v;
     for (int i=1;i<=NE;i++){
         cin>>u>>v;
+        u++,v++;
         e[u].push_back(v);
         e[v].push_back(u);
         k[u]++,k[v]++;
